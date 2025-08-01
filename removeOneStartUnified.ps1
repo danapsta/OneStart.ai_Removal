@@ -57,6 +57,7 @@ foreach ($user in Get-ChildItem C:\Users -Directory) {
                 Remove-Item -Path $full -Recurse -Force -ErrorAction Stop
                 Write-Detected "Deleted $full"
             } catch {
+
                 Write-Detected "Failed to delete $full: $_"
             }
         }
