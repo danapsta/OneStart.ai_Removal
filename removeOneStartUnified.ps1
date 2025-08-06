@@ -22,20 +22,20 @@ $processesToKill = @(
 )
 
 foreach ($p in $processesToKill) {
-    if ($p.PathMatch) {
-        $running = Get-CimInstance Win32_Process | Where-Object { $_.Name -like "$($p.Name)*" -and $_.ExecutablePath -like $p.PathMatch }
+    $running = if ($p.PathMatch) {
+        Get-Process | Where-Object { $_.Name -like $p.Name -and $_.Path -like $p.PathMatch }
     } else {
-        $running = Get-CimInstance Win32_Process -Filter "Name like '$($p.Name)%'"
+        Get-Process -Name $p.Name -ErrorAction SilentlyContinue
     }
     if (-not $running) {
         Write-Info "No running processes found for $($p.Name)."
     } else {
         foreach ($proc in $running) {
             try {
-                Stop-Process -Id $proc.ProcessId -Force -ErrorAction Stop
-                Write-Detected "Stopped $($p.Name) (PID $($proc.ProcessId))."
+                Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+                Write-Detected "Stopped $($p.Name) (PID $($proc.Id))."
             } catch {
-                Write-Detected "Failed to stop $($p.Name) (PID $($proc.ProcessId)): $_"
+                Write-Detected "Failed to stop $($p.Name) (PID $($proc.Id)): $_"
             }
         }
     }
@@ -45,9 +45,9 @@ Start-Sleep -Seconds 2
 
 # Remove OneStart directories for all users
 $filePaths = @(
-    "AppData\Roaming\OneStart",
-    "AppData\Local\OneStart.ai",
-    "AppData\Local\OneStart*"
+    "\AppData\Roaming\OneStart\",
+    "\AppData\Local\OneStart.ai\",
+    "\AppData\Local\OneStart*\*"
 )
 foreach ($user in Get-ChildItem C:\Users -Directory) {
     foreach ($fp in $filePaths) {
@@ -57,7 +57,8 @@ foreach ($user in Get-ChildItem C:\Users -Directory) {
                 Remove-Item -Path $full -Recurse -Force -ErrorAction Stop
                 Write-Detected "Deleted $full"
             } catch {
-                Write-Detected "Failed to delete $($full): $_"
+
+                Write-Detected "Failed to delete $full: $_"
             }
         }
     }
@@ -134,7 +135,7 @@ foreach ($task in $taskNames) {
 # Remove any remaining tasks that match *OneStart*
 Get-ScheduledTask | Where-Object { $_.TaskName -like '*OneStart*' } | ForEach-Object {
     try {
-        Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false -ErrorAction Stop
+        Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false
         Write-Detected "Removed scheduled task: $($_.TaskName)"
         $removed++
     } catch {
